@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore, collection, addDoc, getDocs, query, orderBy, deleteDoc, doc } from "firebase/firestore";
+import { getFirestore, collection, getDoc, addDoc, getDocs, query, orderBy, deleteDoc, doc, onSnapshot } from "firebase/firestore";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCza5MXXRNA1NTbhd_DNZo_aEmv6YcZOdU",
@@ -33,4 +33,23 @@ const deleteFeedback = async (id) => {
   await deleteDoc(doc(db, "feedback", id));
 };
 
-export { auth, googleProvider, db, addFeedback, getFeedbacks, deleteFeedback };
+const getUserData = async (uid) => {
+  const docRef = doc(db, "users", uid);
+  const docSnap = await getDoc(docRef);
+  return docSnap.exists() ? docSnap.data() : null;
+};
+
+const saveUserData = async (uid, data) => {
+  await setDoc(doc(db, "users", uid), data, { merge: true });
+};
+
+const listenToUserData = (uid, callback) => {
+  const docRef = doc(db, "users", uid);
+  return onSnapshot(docRef, (docSnap) => {
+    if (docSnap.exists()) {
+      callback(docSnap.data());
+    }
+  });
+};
+
+export { auth, googleProvider, db, addFeedback, getFeedbacks, deleteFeedback, getUserData, saveUserData, listenToUserData };
