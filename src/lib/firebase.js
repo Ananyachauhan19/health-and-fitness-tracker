@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore, collection, addDoc, getDocs } from "firebase/firestore";
+import { getFirestore, collection, addDoc, getDocs, query, orderBy, deleteDoc, doc } from "firebase/firestore";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCza5MXXRNA1NTbhd_DNZo_aEmv6YcZOdU",
@@ -22,4 +22,15 @@ const addFeedback = async (feedback) => {
   return docRef.id;
 };
 
-export { auth, googleProvider, db, addFeedback };
+const getFeedbacks = async () => {
+  const feedbackRef = collection(db, "feedback");
+  const q = query(feedbackRef, orderBy("timestamp", "desc"));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+};
+
+const deleteFeedback = async (id) => {
+  await deleteDoc(doc(db, "feedback", id));
+};
+
+export { auth, googleProvider, db, addFeedback, getFeedbacks, deleteFeedback };

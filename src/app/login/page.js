@@ -13,7 +13,7 @@ const Login = () => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, user => {
-      if (user) router.push('/home');
+      if (user) router.push('/');
     });
     return () => unsubscribe();
   }, [router]);
