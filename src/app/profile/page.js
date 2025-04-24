@@ -1,56 +1,28 @@
 "use client";
-import { getRedirectResult } from "firebase/auth";
-import { useEffect, useState } from "react";
-import { auth, listenToUserData  } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { useEffect, useState } from "react";
+import { db, auth, listenToUserData } from "@/lib/firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 export default function ProfilePage() {
-  const [user, setUser] = useState(null);
-  const [userData, setUserData] = useState({});
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const ticketHistory = [
-    {
-      flight: "AI203",
-      from: "Delhi",
-      to: "London",
-      date: "2024-12-05",
-      status: "Completed",
-    },
-    {
-      flight: "EK503",
-      from: "Dubai",
-      to: "New York",
-      date: "2024-11-22",
-      status: "Completed",
-    },
-  ];
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+  const [formData, setFormData] = useState({
+    age: "",
+    gender: "",
+    weight: "",
+    height: "",
+    occupation: "",
+    course: "",
+    exerciseLevel: "",
+    sleepDuration: "",
+  });
 
-  const currentBookings = [
-    {
-      flight: "QR728",
-      from: "Doha",
-      to: "Paris",
-      date: "2025-04-25",
-      status: "Confirmed",
-    },
-  ];
-
-  useEffect(() => {
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result?.user) {
-          router.push("/");
-        }
-      })
-      .catch((error) => {
-        console.error(error);
-      });
-  }, [router]);
-
+  // Auth state and redirect if not logged in
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (!currentUser) {
@@ -60,21 +32,36 @@ export default function ProfilePage() {
       }
       setLoading(false);
     });
-
     return () => unsubscribe();
   }, [router]);
 
+  // Fetch user profile data
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        listenToUserData(currentUser.uid, setUserData);
+    const fetchData = async () => {
+      if (user?.uid) {
+        const userRef = doc(db, "users", user.uid);
+        const snap = await getDoc(userRef);
+        if (snap.exists()) {
+          setFormData(snap.data());
+        }
       }
-    });
-    return () => unsub();
-  }, []);
+    };
+    fetchData();
+  }, [user]);
 
-  if (loading) return <div>Loading...</div>;
+  const handleChange = (e) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSave = async () => {
+    if (user?.uid) {
+      const userRef = doc(db, "users", user.uid);
+      await setDoc(userRef, formData, { merge: true });
+      setEditMode(false);
+    }
+  };
+
+  if (loading) return <div className="p-6 text-center">Loading...</div>;
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -82,39 +69,46 @@ export default function ProfilePage() {
 
       <div className="bg-white shadow-md rounded-lg p-6 mb-8">
         <h2 className="text-xl font-semibold mb-4">User Details</h2>
-        <p>
-          <strong>Name:</strong> {user?.displayName || "N/A"}
-        </p>
-        <p>
-          <strong>Email:</strong> {user?.email}
-        </p>
-        <p>
-          <strong>User ID:</strong> {user?.uid}
-        </p>
+        <p><strong>Name:</strong> {user?.displayName || "N/A"}</p>
+        <p><strong>Email:</strong> {user?.email}</p>
+        <p><strong>User ID:</strong> {user?.uid}</p>
       </div>
 
-      <Link href="/update-profile">
-        <button className="mt-4 bg-green-600 text-white px-6 py-2 rounded-lg shadow hover:bg-green-700 transition duration-300">
-          Fill / Update Profile Information
-        </button>
-      </Link>
-
-      <div className="space-y-2">
-        <p><strong>Age:</strong> {userData.age}</p>
-        <p><strong>Gender:</strong> {userData.gender}</p>
-        <p><strong>Weight:</strong> {userData.weight} kg</p>
-        <p><strong>Height:</strong> {userData.height} cm</p>
-        <p><strong>Status:</strong> {userData.status}</p>
-        <p><strong>Profession/Course:</strong> {userData.profession}</p>
-        <p><strong>Exercise Level:</strong> {userData.exercise}</p>
-        <p><strong>Sleep Duration:</strong> {userData.sleep} hrs</p>
+      <div className="grid grid-cols-2 gap-4 bg-white shadow-md rounded-lg p-6">
+        {Object.keys(formData).map((field) => (
+          <div key={field}>
+            <label className="block font-medium capitalize mb-1">{field}</label>
+            <input
+              type="text"
+              name={field}
+              value={formData[field]}
+              onChange={handleChange}
+              disabled={!editMode}
+              className={`w-full p-2 border ${
+                editMode ? "border-blue-500" : "border-gray-300"
+              } rounded-md`}
+            />
+          </div>
+        ))}
       </div>
-      <Link href="/profile/update">
-        <button className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
-          Update Info
-        </button>
-      </Link>
-      
+
+      <div className="flex justify-center mt-6 space-x-4">
+        {!editMode ? (
+          <button
+            onClick={() => setEditMode(true)}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Edit
+          </button>
+        ) : (
+          <button
+            onClick={handleSave}
+            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+          >
+            Save
+          </button>
+        )}
+      </div>
     </div>
   );
 }
