@@ -38,6 +38,7 @@ export default function Navbar() {
         <Link href="/profile">Profile</Link>
         <Link href="/about">About</Link>
         <Link href="/support">Support</Link>
+        <Link href="/daily-input">DailyLog</Link>
       </div>
 
       {user ? (
