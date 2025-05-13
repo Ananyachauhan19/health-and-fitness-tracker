@@ -1,42 +1,70 @@
-"use client";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  ResponsiveContainer,
-} from "recharts";
+'use client';
+import { useEffect, useState } from 'react';
+import { db, auth } from '@/lib/firebase';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { Line } from 'react-chartjs-2';
+import { Chart as ChartJS, LineElement, PointElement, LinearScale, CategoryScale, Title, Tooltip, Legend } from 'chart.js';
 
-export default function Last10DaysChart({ logs = [] }) {
-  const data = logs
-    ?.slice(-10)
-    .map((log) => ({
-      date: log.date,
-      water: Number(log.waterIntake) || 0,
-      exercise: Number(log.exerciseTime) || 0,
-    }));
+ChartJS.register(LineElement, PointElement, LinearScale, CategoryScale, Title, Tooltip, Legend);
+
+export default function Last10DaysChart() {
+  const [chartData, setChartData] = useState(null);
+
+  useEffect(() => {
+    const fetchLastLogs = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const q = query(
+        collection(db, 'logs'),
+        where('userId', '==', user.uid),
+        orderBy('date', 'desc'),
+        limit(10)
+      );
+      const snap = await getDocs(q);
+      if (snap.empty) return;
+
+      const logs = snap.docs.map(doc => doc.data()).reverse();
+
+      setChartData({
+        labels: logs.map(log => log.date),
+        datasets: [
+          {
+            label: 'Water (L)',
+            data: logs.map(log => parseFloat(log.waterIntake || 0)),
+            borderColor: '#60A5FA',
+            fill: false
+          },
+          {
+            label: 'Exercise (min)',
+            data: logs.map(log => parseFloat(log.exerciseTime || 0)),
+            borderColor: '#34D399',
+            fill: false
+          },
+          {
+            label: 'Sleep (hrs)',
+            data: logs.map(log => getSleepHours(log.sleepTime, log.wakeTime)),
+            borderColor: '#FBBF24',
+            fill: false
+          }
+        ]
+      });
+    };
+
+    fetchLastLogs();
+  }, []);
+
+  const getSleepHours = (sleep, wake) => {
+    if (!sleep || !wake) return 0;
+    const [sH, sM] = sleep.split(":").map(Number);
+    const [wH, wM] = wake.split(":").map(Number);
+    return ((24 + wH + wM / 60 - sH - sM / 60) % 24).toFixed(1);
+  };
 
   return (
-    <div className="bg-white p-4 mt-8 rounded-xl shadow-md">
-      <h2 className="text-xl font-semibold mb-4 text-green-600">
-        Last 10 Days Overview
-      </h2>
-      {data.length > 0 ? (
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <Tooltip />
-            <Line type="monotone" dataKey="water" stroke="#3b82f6" name="Water (L)" />
-            <Line type="monotone" dataKey="exercise" stroke="#10b981" name="Exercise (min)" />
-          </LineChart>
-        </ResponsiveContainer>
-      ) : (
-        <p className="text-gray-500">No data to display yet.</p>
-      )}
+    <div className="mt-10">
+      <h2 className="text-xl font-semibold mb-2">Last 10 Days Trends</h2>
+      {chartData ? <Line data={chartData} /> : <p>No logs for the past 10 days.</p>}
     </div>
   );
 }

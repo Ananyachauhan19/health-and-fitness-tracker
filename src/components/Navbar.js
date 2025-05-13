@@ -36,9 +36,9 @@ export default function Navbar() {
       <div className="flex gap-6 mx-auto">
         <Link href="/">Home</Link>
         <Link href="/profile">Profile</Link>
+        <Link href="/daily-input">DailyLog</Link>
         <Link href="/about">About</Link>
         <Link href="/support">Support</Link>
-        <Link href="/daily-input">DailyLog</Link>
       </div>
 
       {user ? (
