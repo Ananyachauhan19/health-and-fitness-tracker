@@ -22,6 +22,21 @@ export default function ProfilePage() {
     sleepDuration: "",
   });
 
+  const additionalHealthMetrics = {
+    bloodPressure: '',
+    restingHeartRate: '',
+    bodyFat: '',
+    bodyType: '',
+    medicalConditions: [],
+    allergies: [],
+    fitnessGoals: [],
+    dietaryRestrictions: [],
+    activityLevel: '',
+    stressLevel: '',
+    sleepQuality: '',
+    recoveryRate: ''
+  };
+
   // Auth state and redirect if not logged in
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -61,53 +76,78 @@ export default function ProfilePage() {
     }
   };
 
-  if (loading) return <div className="p-6 text-center">Loading...</div>;
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-pulse text-lg text-gray-600">Loading...</div>
+    </div>
+  );
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6 text-center">Profile</h1>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 py-12">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h1 className="text-4xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-800 mb-10">
+          Profile Settings
+        </h1>
 
-      <div className="bg-white shadow-md rounded-lg p-6 mb-8">
-        <h2 className="text-xl font-semibold mb-4">User Details</h2>
-        <p><strong>Name:</strong> {user?.displayName || "N/A"}</p>
-        <p><strong>Email:</strong> {user?.email}</p>
-        <p><strong>User ID:</strong> {user?.uid}</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 bg-white shadow-md rounded-lg p-6">
-        {Object.keys(formData).map((field) => (
-          <div key={field}>
-            <label className="block font-medium capitalize mb-1">{field}</label>
-            <input
-              type="text"
-              name={field}
-              value={formData[field]}
-              onChange={handleChange}
-              disabled={!editMode}
-              className={`w-full p-2 border ${
-                editMode ? "border-blue-500" : "border-gray-300"
-              } rounded-md`}
-            />
+        <div className="bg-white shadow-lg rounded-2xl p-8 mb-8 transform hover:scale-[1.01] transition-all duration-300">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-6">User Details</h2>
+          <div className="space-y-4">
+            <p className="flex items-center text-gray-700">
+              <span className="font-semibold w-24">Name:</span>
+              <span className="text-gray-900">{user?.displayName || "N/A"}</span>
+            </p>
+            <p className="flex items-center text-gray-700">
+              <span className="font-semibold w-24">Email:</span>
+              <span className="text-gray-900">{user?.email}</span>
+            </p>
+            <p className="flex items-center text-gray-700">
+              <span className="font-semibold w-24">User ID:</span>
+              <span className="text-gray-500 text-sm font-mono">{user?.uid}</span>
+            </p>
           </div>
-        ))}
-      </div>
+        </div>
 
-      <div className="flex justify-center mt-6 space-x-4">
-        {!editMode ? (
-          <button
-            onClick={() => setEditMode(true)}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Edit
-          </button>
-        ) : (
-          <button
-            onClick={handleSave}
-            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-          >
-            Save
-          </button>
-        )}
+        <div className="bg-white shadow-lg rounded-2xl p-8 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {Object.keys(formData).map((field) => (
+              <div key={field} className="group">
+                <label className="block font-medium text-gray-700 mb-2 group-hover:text-blue-600 transition-colors duration-200 capitalize">
+                  {field}
+                </label>
+                <input
+                  type="text"
+                  name={field}
+                  value={formData[field]}
+                  onChange={handleChange}
+                  disabled={!editMode}
+                  className={`w-full px-4 py-3 rounded-xl border ${
+                    editMode 
+                      ? "border-blue-500 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                      : "border-gray-300 bg-gray-50"
+                  } transition-all duration-200`}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex justify-center mt-8 space-x-4">
+          {!editMode ? (
+            <button
+              onClick={() => setEditMode(true)}
+              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
+            >
+              Edit Profile
+            </button>
+          ) : (
+            <button
+              onClick={handleSave}
+              className="px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
+            >
+              Save Changes
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
