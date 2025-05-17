@@ -29,5 +29,8 @@
         "npm run build"
       ]
     }
-  ]
+  ],
+  "storage": {
+    "rules": "storage.rules"
+  }
 }

@@ -32,35 +32,70 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-white shadow-lg backdrop-filter backdrop-blur-lg bg-opacity-95 sticky top-0 z-50 transition-all duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="flex items-center justify-between">
+    <nav className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center space-x-2">
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
+            <span className="text-xl font-semibold text-gray-800">
               Health Tracker
             </span>
           </Link>
 
           <div className="hidden md:flex items-center space-x-1">
-            <Link href="/" className="px-3 py-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200">Home</Link>
-            <Link href="/profile" className="px-3 py-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200">Profile</Link>
-            <Link href="/daily-input" className="px-3 py-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200">Daily Log</Link>
-            <Link href="/dashboard" className="px-3 py-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200">Dashboard</Link>
-            <Link href="/workout-planner" className="px-3 py-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200">Workouts</Link>
-            <Link href="/meal-planner" className="px-3 py-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200">Meal Plans</Link>
-            <Link href="/about" className="px-3 py-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200">About</Link>
+            <Link 
+              href="/" 
+              className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-200"
+            >
+              Home
+            </Link>
+            <Link 
+              href="/profile" 
+              className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-200"
+            >
+              Profile
+            </Link>
+            <Link 
+              href="/daily-input" 
+              className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-200"
+            >
+              Daily Log
+            </Link>
+            <Link 
+              href="/dashboard" 
+              className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-200"
+            >
+              Dashboard
+            </Link>
+            <Link 
+              href="/workout" 
+              className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-200"
+            >
+              Workouts
+            </Link>
+            <Link 
+              href="/meal-planner" 
+              className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-200"
+            >
+              Meal Plans
+            </Link>
+            <Link 
+              href="/about" 
+              className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-200"
+            >
+              About
+            </Link>
 
             {user ? (
               <button
                 onClick={handleLogout}
-                className="ml-4 px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+                className="ml-6 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded-md hover:bg-gray-200 transition-colors duration-200"
               >
-                Logout
+                Sign Out
               </button>
             ) : (
               <Link href="/login">
-                <button className="ml-4 px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200">
-                  Login
+                <button className="ml-6 px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 transition-colors duration-200">
+                  Sign In
                 </button>
               </Link>
             )}
