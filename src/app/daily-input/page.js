@@ -3,22 +3,14 @@ import { useState, useEffect } from "react";
 import { db, auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { 
-  collection, 
-  addDoc, 
-  query, 
-  where, 
-  orderBy, 
-  getDocs,
   doc,
   setDoc,
   getDoc
 } from "firebase/firestore";
 import { format } from 'date-fns';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Tab } from '@headlessui/react';
-import {
-  LineChart, Line, AreaChart, Area, BarChart, Bar,
+import { BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { FoodSelector, ExerciseSelector, MoodTracker, SleepQualityInput } from '@/components/InputSelectors';
@@ -32,6 +24,7 @@ import {
 import { MealTracker } from '@/components/Trackers/MealTracker';
 import { WaterIntakeTracker } from '@/components/Trackers/WaterIntakeTracker';
 import { SupplementTracker } from '@/components/Trackers/SupplementTracker';
+import { FiChevronLeft, FiChevronRight, FiDownload, FiBell } from 'react-icons/fi';
 
 export default function DailyLog() {
   const router = useRouter();
@@ -82,6 +75,8 @@ export default function DailyLog() {
     afternoon: 0,
     evening: 0
   });
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [notification, setNotification] = useState("");
 
   // Fetch today's data when component mounts
   useEffect(() => {
@@ -99,27 +94,46 @@ export default function DailyLog() {
     return () => unsubscribe();
   }, [router]);
 
-  // Fetch today's data from Firestore
-  const fetchTodayData = async (userId) => {
-    try {
-      const todayDoc = doc(db, 'dailyLogs', `${userId}_${format(new Date(), 'yyyy-MM-dd')}`);
-      const docSnap = await getDoc(todayDoc);
+  // Multi-day navigation
+  const changeDay = (days) => {
+    const newDate = format(new Date(new Date(selectedDate).getTime() + days * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
+    setSelectedDate(newDate);
+    fetchTodayData(user?.uid, newDate);
+  };
 
+  // Fetch data for a specific date
+  const fetchTodayData = async (userId, dateOverride) => {
+    try {
+      const dateStr = dateOverride || format(new Date(), 'yyyy-MM-dd');
+      const todayDoc = doc(db, 'dailyLogs', `${userId}_${dateStr}`);
+      const docSnap = await getDoc(todayDoc);
       if (docSnap.exists()) {
         const data = docSnap.data();
         setForm(prevForm => ({
           ...prevForm,
-          meals: {
-            ...prevForm.meals,
-            ...data.meals
-          },
-          waterIntake: data.waterIntake || 0,
-          supplements: data.supplements || [],
-          date: data.date || format(new Date(), 'yyyy-MM-dd')
+          ...data,
+          meals: { ...prevForm.meals, ...data.meals },
         }));
+      } else {
+        // Reset form for new day
+        setForm({
+          meals: {
+            breakfast: { type: 'Breakfast', time: '', items: [], calories: 0 },
+            lunch: { type: 'Lunch', time: '', items: [], calories: 0 },
+            dinner: { type: 'Dinner', time: '', items: [], calories: 0 },
+            snacks: { type: 'Snacks', time: '', items: [], calories: 0 }
+          },
+          waterIntake: 0,
+          supplements: [],
+          workouts: [{ type: '', exercises: [], duration: 0, notes: '' }],
+          sleep: { duration: 0, quality: 0, bedtime: '', wakeTime: '' },
+          wellness: { mood: 0, energy: 0, motivation: 0 },
+          mood: { morning: 0, afternoon: 0, evening: 0 },
+          date: dateStr
+        });
       }
     } catch (error) {
-      console.error("Error fetching today's data:", error);
+      console.error("Error fetching day's data:", error);
     }
   };
 
@@ -133,7 +147,7 @@ export default function DailyLog() {
         ...newData,
         userId: user.uid,
         updatedAt: new Date().toISOString()
-      }, { merge: true }); // Add merge option to preserve existing data
+      }, { merge: true });
     } catch (error) {
       console.error("Error saving data:", error);
     }
@@ -167,7 +181,45 @@ export default function DailyLog() {
 
   const handleSleepChange = (updatedSleep) => {
     setSleepData(updatedSleep);
+    handleFormUpdate({ sleep: updatedSleep });
   };
+
+  const handleMoodChange = (updatedMood) => {
+    setForm(prev => ({
+      ...prev,
+      mood: updatedMood
+    }));
+    handleFormUpdate({ mood: updatedMood });
+  };
+
+  // Export daily log as JSON
+  const handleExport = () => {
+    const dataStr = JSON.stringify(form, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `daily-log-${selectedDate}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Notification example (e.g., hydration reminder)
+  useEffect(() => {
+    if (form.waterIntake < 1000) {
+      setNotification('Don\'t forget to drink more water today!');
+    } else {
+      setNotification("");
+    }
+  }, [form.waterIntake, selectedDate]);
+
+  // Sync form.sleep with sleepData when sleepData changes
+  useEffect(() => {
+    setForm(prev => ({
+      ...prev,
+      sleep: sleepData
+    }));
+  }, [sleepData]);
 
   if (loading) {
     return <div className="p-4">Loading...</div>;
@@ -177,6 +229,25 @@ export default function DailyLog() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 py-6">
       <div className="max-w-7xl mx-auto px-4">
         <div className="bg-white rounded-2xl shadow-xl p-6">
+          {/* Multi-day navigation and export */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <button onClick={() => changeDay(-1)} className="p-2 rounded-full hover:bg-blue-100"><FiChevronLeft /></button>
+              <span className="font-semibold text-lg">{selectedDate}</span>
+              <button onClick={() => changeDay(1)} className="p-2 rounded-full hover:bg-blue-100"><FiChevronRight /></button>
+            </div>
+            <button onClick={handleExport} className="flex items-center gap-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">
+              <FiDownload /> Export
+            </button>
+          </div>
+          {/* Notification banner */}
+          {notification && (
+            <div className="flex items-center gap-2 bg-yellow-100 border border-yellow-300 text-yellow-900 rounded p-2 mb-4">
+              <FiBell />
+              <span>{notification}</span>
+            </div>
+          )}
+
           <header className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900">Daily Health Tracker</h1>
             <p className="text-gray-600">Track your complete daily wellness journey</p>
@@ -207,7 +278,7 @@ export default function DailyLog() {
                   <DailySummaryCard data={form} />
                   <NutritionSummaryCard meals={form.meals} />
                   <ExerciseSummaryCard workouts={form.workouts} />
-                  <SleepQualityCard sleep={form} />
+                  <SleepQualityCard sleep={form.sleep} />
                   <WellnessScoreCard data={form} />
                 </div>
               </Tab.Panel>
@@ -357,10 +428,7 @@ export default function DailyLog() {
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Mood Tracker</h3>
                     <MoodTracker 
                       mood={form.mood} 
-                      onChange={(updatedMood) => setForm(prev => ({
-                        ...prev,
-                        mood: updatedMood
-                      }))}
+                      onChange={handleMoodChange}
                     />
                   </div>
                 </div>

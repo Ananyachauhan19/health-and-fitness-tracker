@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';  // Add this import at the top
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { format } from 'date-fns';
 
 // Exercise database with common exercises
 const exerciseDatabase = {
@@ -92,15 +93,29 @@ export const ExerciseSelector = ({ workout, onChange }) => {
 
   const loadExerciseData = async (userId) => {
     try {
-      const exerciseDoc = await getDoc(doc(db, 'exercises', userId));
+      const exerciseRef = doc(db, 'exercises', userId);
+      const exerciseDoc = await getDoc(exerciseRef);
       if (exerciseDoc.exists()) {
         const data = exerciseDoc.data();
+        // Patch document if missing userId
+        if (!data.userId) {
+          await setDoc(exerciseRef, { userId }, { merge: true });
+        }
         onChange({
           ...workout,
           exercises: data.exercises || [],
           weightHistory: data.weightHistory || []
         });
         setWeightHistory(data.weightHistory || []);
+      } else {
+        // Create empty document with userId if not exists
+        await setDoc(exerciseRef, { userId, exercises: [], weightHistory: [], summary: {}, updatedAt: new Date().toISOString() });
+        onChange({
+          ...workout,
+          exercises: [],
+          weightHistory: []
+        });
+        setWeightHistory([]);
       }
     } catch (error) {
       console.error('Error loading exercise data:', error);
@@ -117,12 +132,17 @@ export const ExerciseSelector = ({ workout, onChange }) => {
         exercises: updatedWorkout.exercises || [],
         weightHistory: updatedWorkout.weightHistory || [],
         summary: summary,
+        userId: user.uid, // Ensure userId is always present
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
       // Also save daily summary
       const dailySummaryRef = doc(db, 'exerciseSummaries', `${user.uid}_${summary.date}`);
-      await setDoc(dailySummaryRef, summary, { merge: true });
+      await setDoc(dailySummaryRef, {
+        ...summary,
+        userId: user.uid, // Also include userId in summary for consistency
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
     } catch (error) {
       console.error('Error saving exercise data:', error);
     }
@@ -280,6 +300,35 @@ export const ExerciseSelector = ({ workout, onChange }) => {
     }
 
     setRecommendations(recommendation);
+  };
+
+  // Add completion, effort, and notes to each exercise for daily tracking
+  const today = format(new Date(), 'yyyy-MM-dd');
+
+  // Helper to update a single exercise's daily status
+  const handleExerciseStatusChange = async (index, field, value) => {
+    const updatedExercises = workout.exercises.map((ex, i) =>
+      i === index ? { ...ex, [field]: value } : ex
+    );
+    const updatedWorkout = { ...workout, exercises: updatedExercises };
+    onChange(updatedWorkout);
+    await saveDailyExerciseLog(updatedWorkout);
+  };
+
+  // Save daily exercise log to dailyLogs/{userId}_${date}
+  const saveDailyExerciseLog = async (updatedWorkout) => {
+    if (!user) return;
+    try {
+      const logRef = doc(db, 'dailyLogs', `${user.uid}_${today}`);
+      await setDoc(logRef, {
+        workouts: [updatedWorkout],
+        userId: user.uid,
+        date: today,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (error) {
+      console.error('Error saving daily exercise log:', error);
+    }
   };
 
   return (
@@ -492,95 +541,13 @@ export const ExerciseSelector = ({ workout, onChange }) => {
       {/* Display added exercises */}
       {workout.exercises?.length > 0 && (
         <div className="mt-6 space-y-2">
-          <h4 className="font-medium">Added Exercises</h4>
+          <h4 className="font-medium">Today's Exercises</h4>
           {workout.exercises.map((exercise, index) => (
             <div key={index} className="p-4 bg-gray-50 rounded-md">
-              {editingExercise === index ? (
-                <div className="space-y-4">
-                  <div className="flex justify-between">
-                    <input
-                      type="text"
-                      value={exercise.name}
-                      onChange={(e) => handleEditExercise(index, { ...exercise, name: e.target.value })}
-                      className="rounded-md border-gray-300"
-                    />
-                    <div className="space-x-2">
-                      <button
-                        onClick={() => setEditingExercise(null)}
-                        className="text-gray-500 hover:text-gray-600"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => handleEditExercise(index, exercise)}
-                        className="text-blue-500 hover:text-blue-600"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
-                  {exercise.sets.length > 0 && (
-                    <div className="space-y-2">
-                      {exercise.sets.map((set, setIndex) => (
-                        <div key={setIndex} className="grid grid-cols-2 gap-2">
-                          <input
-                            type="number"
-                            value={set.reps}
-                            onChange={(e) => {
-                              const updatedSets = exercise.sets.map((s, i) =>
-                                i === setIndex ? { ...s, reps: e.target.value } : s
-                              );
-                              handleEditExercise(index, { ...exercise, sets: updatedSets });
-                            }}
-                            placeholder="Reps"
-                            className="rounded-md border-gray-300"
-                          />
-                          <input
-                            type="number"
-                            value={set.weight}
-                            onChange={(e) => {
-                              const updatedSets = exercise.sets.map((s, i) =>
-                                i === setIndex ? { ...s, weight: e.target.value } : s
-                              );
-                              handleEditExercise(index, { ...exercise, sets: updatedSets });
-                            }}
-                            placeholder="Weight (kg)"
-                            className="rounded-md border-gray-300"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">{exercise.name}</span>
-                    <div className="space-x-2">
-                      <button
-                        onClick={() => setEditingExercise(index)}
-                        className="text-blue-500 hover:text-blue-600"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => {
-                          onChange({
-                            ...workout,
-                            exercises: workout.exercises.filter((_, i) => i !== index)
-                          });
-                        }}
-                        className="text-red-500 hover:text-red-600"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                  {exercise.sets.length > 0 && (
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex-1">
+                  <span className="font-medium">{exercise.name}</span>
+                  {exercise.sets?.length > 0 && (
                     <div className="text-sm text-gray-600 mt-1">
                       {exercise.sets.map((set, i) => (
                         <div key={i}>
@@ -595,11 +562,37 @@ export const ExerciseSelector = ({ workout, onChange }) => {
                       {exercise.distance > 0 && ` | Distance: ${exercise.distance}km`}
                     </div>
                   )}
-                  {exercise.notes && (
-                    <div className="text-sm text-gray-500 mt-1">{exercise.notes}</div>
-                  )}
                 </div>
-              )}
+                <div className="flex flex-col gap-2 min-w-[180px]">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={!!exercise.completed}
+                      onChange={e => handleExerciseStatusChange(index, 'completed', e.target.checked)}
+                    />
+                    Completed
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    Effort:
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={exercise.effort || ''}
+                      onChange={e => handleExerciseStatusChange(index, 'effort', e.target.value)}
+                      className="w-12 rounded border border-gray-300 px-1"
+                      placeholder="1-10"
+                    />
+                  </label>
+                  <textarea
+                    value={exercise.notes || ''}
+                    onChange={e => handleExerciseStatusChange(index, 'notes', e.target.value)}
+                    placeholder="Notes (optional)"
+                    className="w-full rounded-md border-gray-300 text-xs"
+                    rows={1}
+                  />
+                </div>
+              </div>
             </div>
           ))}
         </div>

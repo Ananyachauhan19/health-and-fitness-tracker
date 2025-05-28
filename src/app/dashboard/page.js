@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { auth, db } from '@/lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
 import Dashboard from '@/components/Dashboard';
 
 export default function DashboardPage() {
@@ -12,43 +12,46 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       const user = auth.currentUser;
-      if (!user) return;
-
+      if (!user) {
+        setLoading(false);
+        setData(null);
+        return;
+      }
       try {
-        const logsRef = collection(db, 'logs');
-        const q = query(logsRef, where('userId', '==', user.uid));
+        // Fetch last 10 days of dailyLogs for this user
+        const logsRef = collection(db, 'dailyLogs');
+        const q = query(
+          logsRef,
+          where('userId', '==', user.uid),
+          orderBy('date', 'desc'),
+          limit(10)
+        );
         const querySnapshot = await getDocs(q);
-        
-        const logs = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
+        const logs = querySnapshot.docs.map(doc => doc.data()).reverse();
+        // Normalize and aggregate data for dashboard
+        const lastTenDays = logs.map(log => ({
+          date: log.date,
+          totalCalories: log.meals ? Object.values(log.meals).reduce((sum, meal) => sum + (meal.calories || 0), 0) : 0,
+          totalProtein: log.meals ? Object.values(log.meals).reduce((sum, meal) => sum + (meal.protein || 0), 0) : 0,
+          totalCarbs: log.meals ? Object.values(log.meals).reduce((sum, meal) => sum + (meal.carbs || 0), 0) : 0,
+          totalFat: log.meals ? Object.values(log.meals).reduce((sum, meal) => sum + (meal.fat || 0), 0) : 0,
+          waterIntake: log.waterIntake || 0,
+          sleepHours: log.sleep ? (log.sleep.duration || 0) : 0,
+          sleepQuality: log.sleep ? (log.sleep.quality || 0) : 0,
+          workoutComplete: log.workouts ? log.workouts.some(w => w.duration > 0 || (w.exercises && w.exercises.length > 0)) : false,
+          moodDistribution: log.moodDistribution || [0,0,0,1,0],
         }));
-
-        // Process logs for dashboard
-        const processedData = {
-          currentWeight: logs[logs.length - 1]?.weight || 0,
-          avgCalories: Math.round(
-            logs.reduce((acc, log) => acc + (log.calories?.total || 0), 0) / logs.length
-          ),
-          workoutStreak: calculateWorkoutStreak(logs),
-          weight: logs.map(log => ({
-            date: log.date,
-            value: log.weight
-          })),
-          calories: logs.map(log => ({
-            date: log.date,
-            value: log.calories?.total || 0
-          }))
-        };
-
-        setData(processedData);
+        setData({
+          lastTenDays,
+          currentWeight: logs[logs.length-1]?.weight || 0,
+          today: lastTenDays[lastTenDays.length-1] || {},
+        });
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching dashboard data:', error);
       } finally {
         setLoading(false);
       }
     };
-
     fetchData();
   }, []);
 
@@ -56,6 +59,14 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-lg text-gray-600">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg text-gray-600">Please log in to view your dashboard.</div>
       </div>
     );
   }
@@ -70,16 +81,4 @@ export default function DashboardPage() {
       </div>
     </div>
   );
-}
-
-function calculateWorkoutStreak(logs) {
-  let streak = 0;
-  for (let i = logs.length - 1; i >= 0; i--) {
-    if (logs[i].exerciseTime > 0) {
-      streak++;
-    } else {
-      break;
-    }
-  }
-  return streak;
 }
