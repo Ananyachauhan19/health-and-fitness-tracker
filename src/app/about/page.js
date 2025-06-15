@@ -4,12 +4,12 @@ import React from "react";
 const teamMembers = [
   {
     name: "Ananya Chauhan",
-    role: "Frontend Developer",
+    role: "Backend Development",
     image: "https://via.placeholder.com/150",
   },
   {
-    name: "Ravi Mehta",
-    role: "Backend Developer",
+    name: "Upasana Gaur",
+    role: "API Integration and Input Collection",
     image: "https://via.placeholder.com/150",
   },
   {
